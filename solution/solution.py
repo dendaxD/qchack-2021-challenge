@@ -27,4 +27,36 @@ def matrix_to_sycamore_operations(
                 an empty list.
         .
     """
-    return NotImplemented, []
+
+    converter = cirq.google.ConvertToSycamoreGates()
+    print(matrix)
+
+    #special case of identity
+    if np.array_equal(matrix, np.identity(matrix.shape[0])):
+        return [], []
+
+    #special case of 1-qubit gates
+    if len(target_qubits) == 1:
+        for gate in [cirq.X, cirq.Y, cirq.Z, cirq.S, cirq.T]:
+            if np.array_equal(matrix, cirq.unitary(gate)):
+                return [gate(target_qubits[0])], []
+    for gate in [cirq.TOFFOLI, cirq.FREDKIN, cirq.CCZ]:
+        if np.array_equal(matrix, cirq.unitary(gate)):
+            converted = converter.convert(gate.on(*target_qubits))
+            circuit = cirq.Circuit(converted)
+            circuit = cirq.google.optimized_for_sycamore(circuit)
+            return list(circuit.all_operations()), []
+
+    
+    # m = unitary_as_gate(matrix, target_qubits)
+    m = cirq.ops.MatrixGate(matrix)
+    try:
+        converted = converter.convert(m.on(*target_qubits))
+        circuit = cirq.Circuit(converted)
+        circuit = cirq.google.optimized_for_sycamore(circuit)
+        return list(circuit.all_operations()), []
+    except:
+        # TODO:
+        # diagonal cases: https://arxiv.org/pdf/1412.5608.pdf
+        # generally: implementation of the algorithm from https://arxiv.org/pdf/1210.7366.pdf
+        return NotImplemented, []
